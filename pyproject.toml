@@ -1,0 +1,52 @@
+# pyproject.toml
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata
+# https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pypiserver-backend-s3"
+description = "A pypiserver backend for storing packages directly to S3 (using boto3)"
+authors = [
+	{name = "Estelle Poulin", email = "dev@inspiredby.es"},
+]
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["pypiserver"]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version", "dependencies"]
+
+
+[project.urls]
+homepage = "https://github.com/estheruary/pypiserver-backend-s3"
+repository = "https://github.com/estheruary/pypiserver-backend-s3"
+changelog = "https://github.com/estheruary/pypiserver-backend-s3/blob/main/README.md"
+
+[project.entry-points.pypiserver_backends]
+s3 = "pypiserver_backend_s3.backend:S3Backend"
+
+[tool.setuptools]
+packages = ["pypiserver_backend_s3"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "pypiserver_backend_s3.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+
+[tool.black]
+line-length = 100
+
+
+[tool.isort]
+profile = "black"
+
+
+[tool.vulture]
+ignore_names = ["self", "cls"]
