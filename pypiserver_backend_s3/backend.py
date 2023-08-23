@@ -33,20 +33,34 @@ class S3Backend(Backend):
         config: RunConfig,
     ):
         super().__init__(config)
-        self.s3_client = boto3.client("s3")
-        self.bucket_name = config.backend_args.get(
+        self.bucket = config.backend_args.get(
             "bucket", os.environ.get("PYPISERVER_BACKEND_S3_BUCKET", "")
         )
-        self.bucket_key_prefix = config.backend_args.get(
+        self.prefix = config.backend_args.get(
             "prefix", os.environ.get("PYPISERVER_BACKEND_S3_PREFIX", "")
         )
+        self.client_args = {}
+
+        if endpoint := config.backend_args.get("endpoint"):
+            self.client_args["endpoint_url"] = endpoint
+
+        if access_key := config.backend_args.get("access_key"):
+            self.client_args["aws_access_key_id"] = access_key
+
+        if secret_access_key := config.backend_args.get("secret_access_key"):
+            self.client_args["aws_secret_access_key"] = secret_access_key
+
+        if default_region := config.backend_args.get("default_region"):
+            self.client_args["region_name"] = default_region
+
+        self.s3_client = boto3.client("s3", **self.client_args)
 
     def get_all_packages(self) -> Iterable[PkgFile]:
         paginator = self.s3_client.get_paginator("list_objects_v2")
 
         for batch in paginator.paginate(
             Bucket=self.bucket_name,
-            Prefix=self.bucket_key_prefix,
+            Prefix=self.prefix,
         ):
             for obj in batch.get("Contents", []):
                 name, version = guess_pkgname_and_version(obj["Key"])
@@ -54,27 +68,25 @@ class S3Backend(Backend):
                     pkgname=name,
                     version=version,
                     fn=obj["Key"],
-                    relfn=obj["Key"].removeprefix(self.bucket_key_prefix),
+                    relfn=obj["Key"].removeprefix(self.prefix),
                 )
 
     def add_package(self, filename: str, stream: BinaryIO) -> None:
         self.s3_client.upload_fileobj(
             Bucket=self.bucket_name,
-            Key=f"{self.bucket_key_prefix}{filename}",
+            Key=f"{self.prefix}{filename}",
             Fileobj=stream,
         )
 
     def remove_package(self, pkg: PkgFile) -> None:
         self.s3_client.delete_object(
             Bucket=self.bucket_name,
-            Key=f"{self.bucket_key_prefix}{pkg.relfn}",
+            Key=f"{self.prefix}{pkg.relfn}",
         )
 
     def exists(self, filename: str) -> bool:
         try:
-            self.s3_client.head_object(
-                Bucket=self.bucket_name, Key=f"{self.bucket_key_prefix}{filename}"
-            )
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=f"{self.prefix}{filename}")
             return True
         except:
             return False
@@ -91,7 +103,7 @@ class S3Backend(Backend):
         buf = BytesIO()
         self.s3_client.download_fileobj(
             Bucket=self.bucket_name,
-            Key=f"{self.bucket_key_prefix}{filename}",
+            Key=f"{self.prefix}{filename}",
             Fileobj=buf,
         )
         buf.seek(0)
