@@ -7,6 +7,9 @@ import boto3
 from pypiserver.backend import Backend, PkgFile, guess_pkgname_and_version
 from typing import Any, Generator, Iterable, BinaryIO, Optional
 
+from pypiserver.config import RunConfig
+
+
 def digest_file(fileobj: BinaryIO, hash_algo: str) -> str:
     """
     Reads and digests a file according to specified hashing-algorith.
@@ -23,21 +26,23 @@ def digest_file(fileobj: BinaryIO, hash_algo: str) -> str:
         digester.update(block)
     return f"{hash_algo}={digester.hexdigest()}"
 
+
 class S3Backend(Backend):
     def __init__(
         self,
-        config,
-        s3_client=boto3.client("s3"),
-        bucket_name: str = os.environ.get("PYPISERVER_BACKEND_S3_BUCKET", ""),
-        bucket_key_prefix: str = os.environ.get("PYPISERVER_BACKEND_S3_PREFIX", ""),
+        config: RunConfig,
     ):
         super().__init__(config)
-        self.s3_client = s3_client
-        self.bucket_name = bucket_name
-        self.bucket_key_prefix = bucket_key_prefix
+        self.s3_client = boto3.client("s3")
+        self.bucket_name = config.backend_args.get(
+            "bucket", os.environ.get("PYPISERVER_BACKEND_S3_BUCKET", "")
+        )
+        self.bucket_key_prefix = config.backend_args.get(
+            "prefix", os.environ.get("PYPISERVER_BACKEND_S3_PREFIX", "")
+        )
 
     def get_all_packages(self) -> Iterable[PkgFile]:
-        paginator = self.s3_client.get_paginator('list_objects_v2')
+        paginator = self.s3_client.get_paginator("list_objects_v2")
 
         for batch in paginator.paginate(
             Bucket=self.bucket_name,
@@ -59,9 +64,7 @@ class S3Backend(Backend):
             Fileobj=stream,
         )
 
-
     def remove_package(self, pkg: PkgFile) -> None:
-        breakpoint()
         self.s3_client.delete_object(
             Bucket=self.bucket_name,
             Key=f"{self.bucket_key_prefix}{pkg.relfn}",
@@ -70,13 +73,11 @@ class S3Backend(Backend):
     def exists(self, filename: str) -> bool:
         try:
             self.s3_client.head_object(
-                Bucket=self.bucket_name,
-                Key=f"{self.bucket_key_prefix}{filename}"
+                Bucket=self.bucket_name, Key=f"{self.bucket_key_prefix}{filename}"
             )
             return True
         except:
             return False
-
 
     def digest(self, pkg: PkgFile) -> Optional[str]:
         if self.hash_algo is None or pkg.relfn is None:
@@ -84,7 +85,6 @@ class S3Backend(Backend):
 
         with self.package(pkg.relfn) as fileobj:
             return digest_file(fileobj, self.hash_algo)
-
 
     @contextmanager
     def package(self, filename: str) -> Generator[BinaryIO, Any, None]:
@@ -97,4 +97,3 @@ class S3Backend(Backend):
         buf.seek(0)
         yield buf
         buf.close()
-
