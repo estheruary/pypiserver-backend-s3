@@ -59,7 +59,7 @@ class S3Backend(Backend):
         paginator = self.s3_client.get_paginator("list_objects_v2")
 
         for batch in paginator.paginate(
-            Bucket=self.bucket_name,
+            Bucket=self.bucket,
             Prefix=self.prefix,
         ):
             for obj in batch.get("Contents", []):
@@ -73,22 +73,22 @@ class S3Backend(Backend):
 
     def add_package(self, filename: str, stream: BinaryIO) -> None:
         self.s3_client.upload_fileobj(
-            Bucket=self.bucket_name,
+            Bucket=self.bucket,
             Key=f"{self.prefix}{filename}",
             Fileobj=stream,
         )
 
     def remove_package(self, pkg: PkgFile) -> None:
         self.s3_client.delete_object(
-            Bucket=self.bucket_name,
+            Bucket=self.bucket,
             Key=f"{self.prefix}{pkg.relfn}",
         )
 
     def exists(self, filename: str) -> bool:
         try:
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=f"{self.prefix}{filename}")
+            self.s3_client.head_object(Bucket=self.bucket, Key=f"{self.prefix}{filename}")
             return True
-        except:
+        except Exception:
             return False
 
     def digest(self, pkg: PkgFile) -> Optional[str]:
@@ -102,7 +102,7 @@ class S3Backend(Backend):
     def package(self, filename: str) -> Generator[BinaryIO, Any, None]:
         buf = BytesIO()
         self.s3_client.download_fileobj(
-            Bucket=self.bucket_name,
+            Bucket=self.bucket,
             Key=f"{self.prefix}{filename}",
             Fileobj=buf,
         )
