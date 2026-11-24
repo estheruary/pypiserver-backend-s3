@@ -30,6 +30,13 @@ changelog = "https://github.com/estheruary/pypiserver-backend-s3/blob/main/READM
 
 [project.entry-points.pypiserver_backends]
 s3 = "pypiserver_backend_s3.backend:S3Backend"
+s3-cached = "pypiserver_backend_s3.cached_backend:CachedS3Backend"
+
+[project.scripts]
+pypi-s3-import-checksums = "pypiserver_backend_s3.checksum_report:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7", "pypiserver-pluggable-backends==1.5.2", "setuptools>=80.10.2,<81"]
 
 [tool.setuptools]
 packages = ["pypiserver_backend_s3"]
